@@ -5,6 +5,7 @@ import urllib
 import urllib.request
 import os
 import matplotlib.pyplot as plt
+import gzip
 
 class NN():
     def __init__(self):
@@ -88,6 +89,7 @@ class NN():
         
         self.training_set = np.array(raw_data['images'])
         self.labels = np.array(raw_data['labels'])
+
         self.test_set = np.array(raw_data['images_test'])
         self.test_labels = np.array(raw_data['labels_test'])
 
@@ -95,7 +97,7 @@ class NN():
         # image = np.asarray(raw_data['images'][0]).squeeze()
         # plt.imshow(image)
         # plt.show()
-    
+
     def data_preprocessing(self):
         # Scalin data
         self.training_set = (self.training_set.astype(np.float32) - 127.5) / 127.5
@@ -107,44 +109,42 @@ class NN():
         # print (self.training_set.min(), self.training_set.max())
 
         # Data Shafelling
-        import nnfs
-        nnfs.init()
-
         keys = np.array(range(self.training_set.shape[0]))
         np.random.shuffle(keys)
         self.training_set = self.training_set[keys]
         self.labels = self.labels[keys]
 
+        # Labers preporcessing
+        self.processed_labels = np.zeros((len(self.training_set), 10))
+        
+        for i in range(len(self.training_set)):
+            self.processed_labels[i][self.labels[i]] = 1
+
         # import matplotlib.pyplot as plt
-        # plt.imshow((self.training_set[5].reshape(28, 28)))
-        # print(self.labels[5])
+        # plt.imshow((self.training_set[0].reshape(28, 28)))
         # plt.show()
         
     def chunking(self):
-        self.batch_size = 32
+        self.batch_size = 128
         self.steps = self.training_set.shape[0] // self.batch_size
+
         if self.steps * self.batch_size < self.training_set.shape[0]:
             self.steps += 1
 
     def parameters_generation(self):
-        x_batch = self.training_set[1 * self.batch_size:(1 + 1) * self.batch_size]
-        y_batch = self.labels[1 * self.batch_size:(1 + 1) * self.batch_size]
-
-        # instances = self.training_set.shape[0]
-        # attributes = self.training_set.shape[1]
-        # output_labels = len(self.labels)
-
-        instances = x_batch.shape[0]
-        attributes = x_batch.shape[1]
-        output_labels = len(y_batch)
+        instances = self.training_set.shape[0]
+        attributes = self.training_set.shape[1]
+        output_labels = len(self.processed_labels[0])
 
         hidden_nodes = 4
 
         self.weights_hidden = np.random.rand(attributes, hidden_nodes)
         self.bias_h = np.random.randn(hidden_nodes)
-        
         self.weights_output = np.random.rand(hidden_nodes, output_labels)
         self.bias_o = np.random.randn(output_labels)
+        
+        self.accumulated_sum = 0
+        self.accumulated_count = 0
         print('Parameters generated!')
 
     def memory(self):
@@ -172,17 +172,16 @@ class NN():
             index = 0
         expx = np.exp(x)
         return expx / expx.sum(axis=index, keepdims=True)
-    
+
     def training(self, iterations):
         error_cost = []
+        # sys.exit("Error message")
 
         for i in range(iterations):
 
-
             for step in range(self.steps):
-                ########## Feedforward
-                x_batch = self.training_set[step * self.batch_size:(step + 1 ) * self.batch_size]
-                y_batch = self.labels[step * self.batch_size:(step + 1 ) * self.batch_size]
+                x_batch = self.training_set[step * self.batch_size:(step + 1) * self.batch_size]
+                y_batch = self.processed_labels[step * self.batch_size:(step + 1) * self.batch_size]
 
                 ########## Step 1 - Hidden layer
                 X = np.dot(x_batch, self.weights_hidden) + self.bias_h
@@ -191,21 +190,18 @@ class NN():
                 ########## Step 2 - Output layer
                 y = np.dot(prediction_h, self.weights_output) + self.bias_o
                 prediction_o = self.softmax(y)
-                ########## Back Propagation
+                ######### Back Propagation
 
                 ########## Step 1 - Output layer
                 pred_h = prediction_h
 
                 error_cost_o = prediction_o - y_batch
-
                 der_cost_o = np.dot(pred_h.T, error_cost_o)
-
                 dcost_bo = error_cost_o
 
                 ########## Step 2 - Hidden layer
-
                 weight_o = self.weights_output
-                error_cost_h = np.dot(error_cost_o , weight_o.T)
+                error_cost_h = np.dot(error_cost_o, weight_o.T)
                 derivative_h = self.sigmoid_der(X)
                 taining_data = x_batch
                 der_cost_h = np.dot(taining_data.T, derivative_h * error_cost_h)
@@ -219,13 +215,27 @@ class NN():
 
                 self.weights_output -= self.learning_rate * der_cost_o
                 self.bias_o -= self.learning_rate * dcost_bo.sum(axis=0)
-
                 
                 loss = np.sum(-y_batch * np.log(prediction_o))
-                print('Loss function value: ', loss)
                 error_cost.append(loss)
-        
+
+                # self.accumulated_sum += np.sum(loss)
+                # self.accumulated_count += len(loss)
+                # print(self.accumulated_sum)
+                # print('Loss function value: ', loss)
+
+            print(error_cost[-1])
         self.memory()
+    
+    def think(self):
+        sample = self.training_set[0]
+        X = np.dot(sample, self.weights_hidden) + self.bias_h
+        hidden_layer = self.sigmoid(X)
+
+        y = np.dot(hidden_layer, self.weights_output) + self.bias_o
+        output_layer = self.softmax(y)
+        
+        print(output_layer)
 
 
 ############################### Execution ################################
@@ -239,3 +249,4 @@ net.data_preprocessing()
 net.chunking()
 net.parameters_generation()
 net.training(10)
+# net.think()
