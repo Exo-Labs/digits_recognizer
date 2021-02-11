@@ -112,12 +112,6 @@ class NN():
         for i in range(len(self.training_set)):
             self.processed_labels[i][self.labels[i]] = 1
 
-        # import matplotlib.pyplot as plt
-        # plt.imshow((self.test_set[0].reshape(28, 28)))
-        # plt.show()
-
-        # print(self.test_labels[0])
-
     def chunking(self):
         self.batch_size = 32
         self.steps = self.training_set.shape[0] // self.batch_size
@@ -126,21 +120,18 @@ class NN():
             self.steps += 1
 
     def parameters_generation(self):
-        instances = self.training_set.shape[0]
         attributes = self.training_set.shape[1]
         output_labels = len(self.processed_labels[0])
 
         hidden_nodes1 = int(len(self.training_set[0]) * 1.25)
-        
-        # hidden_nodes2 = int(len(self.training_set[0]) * 1.25)
-        
-        # hidden_nodes1 = 500
 
         self.weights_hidden1 = np.random.rand(attributes, hidden_nodes1) * 0.01
-        self.bias_h1 = np.random.randn(hidden_nodes1)
+        self.bias_h1 = np.zeros((1, hidden_nodes1))
+        # self.bias_h1 = np.random.randn(hidden_nodes1)
 
         self.weights_output = np.random.rand(hidden_nodes1, output_labels) * 0.01
-        self.bias_o = np.random.randn(output_labels)
+        self.bias_o = np.zeros((1, output_labels))
+        # self.bias_o = np.random.randn(output_labels)
         
         print('Parameters generated!')
 
@@ -159,7 +150,7 @@ class NN():
         return 1/(1+np.exp(-x))
 
     def sigmoid_der(self, x):
-        return self.sigmoid(x) *(1-self.sigmoid (x))
+        return self.sigmoid(x) *(1 - self.sigmoid (x))
 
     def softmax(self, x):
         try:
@@ -203,7 +194,6 @@ class NN():
                 weight_o = self.weights_output
                 error_cost_h1 = np.dot(error_cost_o, weight_o.T)
                 derivative_h1 = self.sigmoid_der(X1)
-                pred_h2 = prediction_h1
                 der_cost_h1 = np.dot(taining_data.T, derivative_h1 * error_cost_h1)
 
                 dcost_bh1 = error_cost_h1 * derivative_h1
@@ -219,9 +209,10 @@ class NN():
                 loss = np.sum(-y_batch * np.log(prediction_o))
                 error_cost = loss
 
-            iter_num += 1
+            # iter_num += 1
             # print('Iterations: ' + str(iter_num))
             # print(error_cost)
+            
         self.memory()
         print('Training is done!')
     
@@ -256,13 +247,13 @@ class NN():
         
         label = np.argmax(output_layer)
         
-        # print(output_layer)
-        # print("The number is:")
-        # print(label)
+        print(output_layer)
+        print("The number is:")
+        print(label)
 
-        # import matplotlib.pyplot as plt
-        # plt.imshow((sample.reshape(28, 28)))
-        # plt.show()
+        import matplotlib.pyplot as plt
+        plt.imshow((sample.reshape(28, 28)))
+        plt.show()
         
         return label
         
@@ -305,6 +296,5 @@ net.parameters_generation()
 net.training(1000)
 net.testing()
 
-# sample = net.process_image(Image.open(r"C:\Users\User\Desktop\111.png"))
-
+# sample = net.process_image(Image.open(r"C:\Users\User\Desktop\123.png"))
 # net.think(sample)
