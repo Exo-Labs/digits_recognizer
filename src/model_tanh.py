@@ -9,7 +9,9 @@ class NN():
     def __init__(self):
         np.set_printoptions(linewidth=200)        
         np.random.seed(42)
-        self.learning_rate = 10e-4
+        # self.learning_rate = 10e-4
+        self.learning_rate = 0.001
+
 
     def extracting_data(self):
         # Extracting images
@@ -112,6 +114,12 @@ class NN():
         for i in range(len(self.training_set)):
             self.processed_labels[i][self.labels[i]] = 1
 
+        # import matplotlib.pyplot as plt
+        # plt.imshow((self.test_set[0].reshape(28, 28)))
+        # plt.show()
+
+        # print(self.test_labels[0])
+
     def chunking(self):
         self.batch_size = 32
         self.steps = self.training_set.shape[0] // self.batch_size
@@ -123,34 +131,45 @@ class NN():
         attributes = self.training_set.shape[1]
         output_labels = len(self.processed_labels[0])
 
-        hidden_nodes1 = int(len(self.training_set[0]) * 1.25)
+        hidden_nodes1 = 128
+        hidden_nodes2 = 128
+        hidden_nodes3 = 128
 
-        self.weights_hidden1 = np.random.rand(attributes, hidden_nodes1) * 0.01
-        self.bias_h1 = np.zeros((1, hidden_nodes1))
-        # self.bias_h1 = np.random.randn(hidden_nodes1)
+        self.w1 = np.random.rand(attributes, hidden_nodes1) * 0.01
+        self.b1 = np.zeros((1, hidden_nodes1))
 
-        self.weights_output = np.random.rand(hidden_nodes1, output_labels) * 0.01
-        self.bias_o = np.zeros((1, output_labels))
-        # self.bias_o = np.random.randn(output_labels)
+        self.w2 = np.random.rand(hidden_nodes1, hidden_nodes2) * 0.01
+        self.b2 = np.zeros((1, hidden_nodes2))
+
+        self.w3 = np.random.rand(hidden_nodes2, hidden_nodes3) * 0.01
+        self.b3 = np.zeros((1, hidden_nodes3))
+
+        self.wo = np.random.rand(hidden_nodes3, output_labels) * 0.01
+        self.bo = np.random.randn(output_labels)
         
         print('Parameters generated!')
 
     def memory(self):
         data = {
-            'weights_hidden1': self.weights_hidden1.tolist(),
-            'bias_h1': self.bias_h1.tolist(),
-            'weights_output': self.weights_output.tolist(),
-            'bias_o': self.bias_o.tolist(),
+            'w1': self.w1.tolist(),
+            'b1': self.b1.tolist(),
+            'w2': self.w2.tolist(),
+            'b2': self.b2.tolist(),
+            'w3': self.w3.tolist(),
+            'b3': self.b3.tolist(),
+            'wo': self.wo.tolist(),
+            'bo': self.bo.tolist(),
         }
 
-        with open('training/params.json', 'w') as json_file:
+        with open('training/tanh_model.json', 'w') as json_file:
             json.dump(data, json_file)
+    
+    def tanh(self, x):
+        t=(np.exp(x)-np.exp(-x))/(np.exp(x)+np.exp(-x))
+        return t
 
-    def sigmoid(self, x):
-        return 1/(1+np.exp(-x))
-
-    def sigmoid_der(self, x):
-        return self.sigmoid(x) *(1 - self.sigmoid (x))
+    def tanh_der(self, x):
+        return 1 - self.tanh(x) ** 2
 
     def softmax(self, x):
         try:
@@ -162,7 +181,6 @@ class NN():
         return expx / expx.sum(axis=index, keepdims=True)
 
     def training(self, iterations):
-        error_cost = 0
         iter_num = 0
 
         for i in range(iterations):
@@ -170,51 +188,148 @@ class NN():
                 x_batch = self.training_set[step * self.batch_size:(step + 1) * self.batch_size]
                 y_batch = self.processed_labels[step * self.batch_size:(step + 1) * self.batch_size]
 
-                ########## Step 1 - Hidden layer #1
-                X1 = np.dot(x_batch, self.weights_hidden1) + self.bias_h1
-                prediction_h1 = self.sigmoid(X1)
+                ########## Step 1 - Hidden layer #1 - Activation Functions
+                X1 = np.dot(x_batch, self.w1) + self.b1
+                prediction_h1 = self.tanh(X1)
+
+                X2 = np.dot(prediction_h1, self.w2) + self.b2
+                prediction_h2 = self.tanh(X2)
+
+                X3 = np.dot(prediction_h2, self.w3) + self.b3
+                prediction_h3 = self.tanh(X3)
 
                 ########## Step 2 - Output layer
-                y = np.dot(prediction_h1, self.weights_output) + self.bias_o
+                y = np.dot(prediction_h3, self.wo) + self.bo
                 prediction_o = self.softmax(y)
                 
                 ######### Back Propagation
+                loss_func = np.sum((prediction_o - y_batch)**2)/2
 
-                ########## Step 1 - Output layer
-                pred_h1 = prediction_h1
+                ########## Step 1 - Output layer - Loss function and derevative of the loss
+                loss = prediction_o - y_batch
 
-                error_cost_o = prediction_o - y_batch
+                pred_h3 = prediction_h3
 
-                der_cost_o = np.dot(pred_h1.T, error_cost_o)
-                dcost_bo = error_cost_o
-                
+                grad_wo = np.dot(pred_h3.T, loss)
+                grad_bo = np.sum(loss, axis=0)
+
                 ########## Step 2 - Hidden layer #3
-                taining_data = x_batch
-
-                weight_o = self.weights_output
-                error_cost_h1 = np.dot(error_cost_o, weight_o.T)
-                derivative_h1 = self.sigmoid_der(X1)
-                der_cost_h1 = np.dot(taining_data.T, derivative_h1 * error_cost_h1)
-
-                dcost_bh1 = error_cost_h1 * derivative_h1
-
-                ########## Update Weights and Biases
-
-                self.weights_hidden1 -= self.learning_rate * der_cost_h1
-                self.bias_h1 -= self.learning_rate * dcost_bh1.sum(axis=0)
-
-                self.weights_output -= self.learning_rate * der_cost_o
-                self.bias_o -= self.learning_rate * dcost_bo.sum(axis=0)
+                weight_o = self.wo
+                derivative_h3 = self.tanh_der(X3)
                 
-                loss = np.sum(-y_batch * np.log(prediction_o))
-                error_cost = loss
+                pred_h2 = prediction_h2
+                loss_h3 = np.dot(loss, weight_o.T)
 
-            # iter_num += 1
+                grad_w3 = np.dot(pred_h2.T, derivative_h3 * loss_h3)
+                grad_b3 = np.sum(loss_h3 * derivative_h3, axis=0)
+
+                ########## Step 3 - Hidden layer #2
+                weight_h3 = self.w3
+                derivative_h2 = self.tanh_der(X2)
+                
+                pred_h1 = prediction_h1
+                loss_h2 = np.dot(loss_h3, weight_h3.T)
+
+                grad_w2 = np.dot(pred_h1.T, derivative_h2 * loss_h2)
+                grad_b2 = np.sum(loss_h2 * derivative_h2, axis=0)
+
+                ########## Step 4 - Hidden layer #1
+                weight_h2 = self.w2
+                derivative_h1 = self.tanh_der(X1)
+
+                taining_data = x_batch
+                loss_h1 = np.dot(loss_h2, weight_h2.T)
+
+                grad_w1 = np.dot(taining_data.T, derivative_h1 * loss_h1)
+                grad_b1 = np.sum(loss_h1 * derivative_h1, axis=0)
+
+                ########## Update Weights and Biases - Optimization function
+                # for param, gradient in zip([w1, w2, w3, b1, b2, b3], [dw1, dw2, dw3, db1, db2, db3]):
+                #     param -= learning_rate * gradient
+
+                self.w1 -= self.learning_rate * grad_w1
+                self.b1 -= self.learning_rate * grad_b1
+
+                self.w2 -= self.learning_rate * grad_w2
+                self.b2 -= self.learning_rate * grad_b2
+
+                self.w3 -= self.learning_rate * grad_w3
+                self.b3 -= self.learning_rate * grad_b3
+
+                self.wo -= self.learning_rate * grad_wo
+                self.bo -= self.learning_rate * grad_bo
+
+            iter_num += 1
+
             # print('Iterations: ' + str(iter_num))
-            # print(error_cost)
-            
+            # print('Loss: ' + str(loss_func))
+
         self.memory()
         print('Training is done!')
+
+    def think(self, sample):
+        np.set_printoptions(suppress=True, formatter={'float_kind':'{:f}'.format})
+
+        with open('training/tanh_model.json') as f:
+            raw_data = json.load(f)
+
+        hidden_layer1 = np.array(raw_data['w1'])
+        hidden_layer2 = np.array(raw_data['w2'])
+        hidden_layer3 = np.array(raw_data['w3'])
+        output_layer = np.array(raw_data['wo'])
+        bias_h1 = np.array(raw_data['b1'])
+        bias_h2 = np.array(raw_data['b2'])
+        bias_h3 = np.array(raw_data['b3'])
+        bias_o = np.array(raw_data['bo'])
+
+        X1 = np.dot(sample, hidden_layer1) + bias_h1
+        hidden_layer1 = self.tanh(X1)
+
+        X2 = np.dot(hidden_layer1, hidden_layer2) + bias_h2
+        hidden_layer2 = self.tanh(X2)
+
+        X3 = np.dot(hidden_layer2, hidden_layer3) + bias_h3
+        hidden_layer3 = self.tanh(X3)
+
+        y = np.dot(hidden_layer3, output_layer) + bias_o
+        output_layer = np.array(self.softmax(y))
+        
+        label = np.argmax(output_layer)
+        
+        # print(output_layer)
+        # print("The number is:")
+        # print(label)
+
+        # import matplotlib.pyplot as plt
+        # plt.imshow((sample.reshape(28, 28)))
+        # plt.show()
+        
+        return label
+        
+    def testing(self):
+        error = 0
+        correct = 0
+        count = 0
+
+        for i in range(len(self.test_set)):
+            result = self.think(self.test_set[i])
+            label = self.test_labels[i]
+            
+            if (result == label):
+                correct += 1
+            else:
+                error += 1
+            count += 1
+
+            # print('Result:')
+            # print(result)
+            # print('Label:')
+            # print(label)
+            # print(count)
+
+        # Calculating error rate
+        error_result = (error / len(self.test_set)) * 100
+        print('Error rate is: ' + str(error_result) + '%')
     
     def process_image(self, im):
         img = np.array(im)
@@ -228,63 +343,10 @@ class NN():
 
         return processed_image
 
-    def think(self, sample):
-        np.set_printoptions(suppress=True, formatter={'float_kind':'{:f}'.format})
-
-        with open('training/params.json') as f:
-            raw_data = json.load(f)
-
-        hidden_layer1 = np.array(raw_data['weights_hidden1'])
-        output_layer = np.array(raw_data['weights_output'])
-        bias_h1 = np.array(raw_data['bias_h1'])
-        bias_o = np.array(raw_data['bias_o'])
-
-        X1 = np.dot(sample, hidden_layer1) + bias_h1
-        hidden_layer1 = self.sigmoid(X1)
-
-        y = np.dot(hidden_layer1, output_layer) + bias_o
-        output_layer = np.array(self.softmax(y))
-        
-        label = np.argmax(output_layer)
-        
-        print(output_layer)
-        print("The number is:")
-        print(label)
-
-        import matplotlib.pyplot as plt
-        plt.imshow((sample.reshape(28, 28)))
-        plt.show()
-        
-        return label
-        
-    def testing(self):
-        error = 0
-        correct = 0
-        count = 0
-
-        for i in range(len(self.test_set)):
-            result = self.think(self.test_set[i])
-            label = self.test_labels[i]
-            
-            # print('Result:')
-            # print(result)
-            # print('Label:')
-            # print(label)
-
-            if (result == label):
-                correct += 1
-            else:
-                error += 1
-            
-            count += 1
-            # print(count)
-
-        # Calculating error rate
-        error_result = (error / len(self.test_set)) * 100
-        print('Error rate is: ' + str(error_result) + '%')
-
 ############################### Execution ################################
 net = NN()
+# sample = net.process_image(Image.open(r"C:\Users\User\Desktop\111.png"))
+# net.think(sample)
 
 # Extracting data from Minist database
 # net.extracting_data()
@@ -293,8 +355,5 @@ net.load_data()
 net.data_preprocessing()
 net.chunking()
 net.parameters_generation()
-net.training(1000)
+net.training(100)
 net.testing()
-
-# sample = net.process_image(Image.open(r"C:\Users\User\Desktop\123.png"))
-# net.think(sample)
