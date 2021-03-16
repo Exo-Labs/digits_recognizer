@@ -12,7 +12,6 @@ class NN():
         # self.learning_rate = 10e-4
         self.learning_rate = 0.001
 
-
     def extracting_data(self):
         # Extracting images
         with gzip.open('data/train-images-idx3-ubyte.gz', 'r') as f:

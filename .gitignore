@@ -1,3 +1,6 @@
-/src/data
-/src/training
-/src/__pycache__
+/scratch/data
+/scratch/training
+/scratch/__pycache__
+/pytorch/__pycache__
+/pytorch/dataset
+/flask/__pycache__
